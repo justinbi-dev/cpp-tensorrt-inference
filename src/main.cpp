@@ -1,8 +1,5 @@
-#include "trt_detector.hpp"
-#include "video_source.hpp"
+#include "trt_infer.hpp"
 #include <opencv2/opencv.hpp>
-#include <preprocessor.hpp>
-#include <postprocessor.hpp>
 #include <config.hpp>
 
 #ifndef PROJECT_ROOT_DIR
@@ -27,7 +24,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    auto detector = std::make_unique<TRTDetector>(resolvePath(std::string(PROJECT_ROOT_DIR), config.engine_path));
+    auto detector = std::make_unique<TRTInfer>(config);
 
     cv::VideoCapture source(resolvePath(std::string(PROJECT_ROOT_DIR), config.input_source));
     cv::Mat frame;

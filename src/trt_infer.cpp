@@ -1,6 +1,5 @@
-#include "trt_detector.hpp"
-#include "preprocessor.hpp"
-#include "postprocessor.hpp"
+#include "trt_infer.hpp"
+
 #include <fstream>
 #include <cuda_runtime_api.h>
 
@@ -12,14 +11,13 @@ class Logger : public nvinfer1::ILogger {
 };
 static Logger gLogger;
 
-TRTDetector::TRTDetector(const std::string& enginePath, float conf, float nms, cv::Size size)
-    : inputSize_(size), confThresh_(conf), nmsThresh_(nms) {
-    loadEngine(enginePath);
+TRTInfer::TRTInfer(DetectorConfig cfg) {
+    model_ = std::make_unique<YOLOv8Model>(cfg.engine_path, cfg.conf_threshold, cfg.nms_threshold, cfg.input_height, cfg.input_width, 1920, 1080);
+    loadEngine(resolvePath(std::string(PROJECT_ROOT_DIR), cfg.engine_path));
     allocateBuffers();
     cudaStreamCreate(&stream_);
 }
-
-void TRTDetector::loadEngine(const std::string& path) {
+void TRTInfer::loadEngine(const std::string& path) {
     std::ifstream file(path, std::ios::binary);
     if (!file.good()) {
         throw std::runtime_error("Failed to open engine file: " + path);
@@ -44,7 +42,7 @@ void TRTDetector::loadEngine(const std::string& path) {
     }
     context_.reset(engine_->createExecutionContext());
 }
-void TRTDetector::allocateBuffers() {
+void TRTInfer::allocateBuffers() {
     int numIO = engine_->getNbIOTensors();
 
     for (int i = 0; i < numIO; ++i) {
@@ -74,9 +72,10 @@ void TRTDetector::allocateBuffers() {
     }
 }
 
-std::vector<Detection> TRTDetector::detect(const cv::Mat& frame) {
+std::vector<Detection> TRTInfer::detect(const cv::Mat& frame) {
     // 1. preprocess: letterbox resize + BGR->RGB + normalize + HWC->CHW
-    cv::Mat blob = preprocess(frame, inputSize_);   // see preprocessor.hpp
+    //cv::Mat blob = preprocess(frame, inputSize_);   // see preprocessor.hpp
+    cv::Mat blob = model_->preprocess(frame); 
 
     // 2. copy to device, enqueue, copy back
     cudaMemcpyAsync(inputDevice_, blob.ptr<float>(), blob.total() * sizeof(float),
@@ -87,10 +86,10 @@ std::vector<Detection> TRTDetector::detect(const cv::Mat& frame) {
     cudaStreamSynchronize(stream_);
 
     // 3. postprocess: decode boxes, filter by confThresh_, NMS, rescale to original frame
-    return postprocess(outputHost_, inputSize_, confThresh_, nmsThresh_);
+    return model_->postprocess(outputHost_);
 }
 
-TRTDetector::~TRTDetector() {
+TRTInfer::~TRTInfer() {
     cudaFree(inputDevice_);
     cudaFree(outputDevice_);
     cudaStreamDestroy(stream_);

@@ -22,11 +22,9 @@ link_directories(${TENSORRT_LIB_DIR})
 
 add_executable(orin_detector
     src/main.cpp
-    src/trt_detector.cpp
-    src/preprocessor.cpp
-    src/postprocessor.cpp
-    src/video_source.cpp
+    src/trt_infer.cpp
     src/config.cpp
+    src/yolov8_model.cpp
 )
 
 target_compile_definitions(orin_detector PRIVATE

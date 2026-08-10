@@ -1,25 +1,20 @@
 #pragma once
-#include "idetector.hpp"
+#include "imodel.hpp"
+#include "config.hpp"
+#include "yolov8_model.hpp"
 #include <NvInfer.h>
 #include <memory>
 
-class TRTDetector : public IDetector {
+class TRTInfer {
 public:
-    TRTDetector(const std::string& enginePath,
-                float confThresh = 0.25f,
-                float nmsThresh = 0.45f,
-                cv::Size inputSize = {640, 640});
-    ~TRTDetector() override;
+    TRTInfer(const DetectorConfig cfg);
+    ~TRTInfer();
 
-    std::vector<Detection> detect(const cv::Mat& frame) override;
-    cv::Size inputSize() const override { return inputSize_; }
+    std::vector<Detection> detect(const cv::Mat& frame);
 
 private:
     void loadEngine(const std::string& path);
     void allocateBuffers();
-
-    cv::Size inputSize_;
-    float confThresh_, nmsThresh_;
 
     // TensorRT objects — use unique_ptr with custom deleter or nvinfer1's own
     std::unique_ptr<nvinfer1::IRuntime> runtime_;
@@ -35,4 +30,6 @@ private:
     size_t inputSize_bytes_ = 0;
     size_t outputSize_bytes_ = 0;
     nvinfer1::Dims outputDims_;
+
+    std::unique_ptr<IDetectorModel> model_;
 };

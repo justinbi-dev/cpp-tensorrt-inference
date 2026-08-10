@@ -6,11 +6,10 @@
 class IModel {
 public:
     virtual ~IModel() = default;
-    virtual std::vector<float> preprocess(const cv::Mat& frame) = 0;
+    virtual cv::Mat preprocess(const cv::Mat& frame) = 0;
 };
 
 class IDetectorModel : public IModel {
 public:
-    virtual std::vector<Detection> postprocess(const std::vector<float>& rawOutput,
-                                                 const cv::Size& originalFrameSize) = 0;
+    virtual std::vector<Detection> postprocess(const std::vector<float>& rawOutput) = 0;
 };
