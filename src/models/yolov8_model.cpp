@@ -1,16 +1,19 @@
-#include "yolov8_model.hpp"
+#include "models/yolov8_model.hpp"
+#include "utils/timer.hpp"
 
-YOLOv8Model::YOLOv8Model(const std::string& enginePath,
-                        float confThresh,
-                        float nmsThresh,
-                        uint modelInputWidth,
-                        uint modelInputHeight,
-                        uint sourceWidth,
-                        uint sourceHeight,
-                        uint numClasses)
-    : confThresh_(confThresh), nmsThresh_(nmsThresh), modelInputWidth_(modelInputWidth), modelInputHeight_(modelInputHeight), sourceWidth_(sourceWidth), sourceHeight_(sourceHeight), numClasses_(numClasses) {}
+YOLOv8Model::YOLOv8Model(const DetectorConfig& cfg)
+    : confThresh_(cfg.conf_threshold), 
+    nmsThresh_(cfg.nms_threshold), 
+    modelInputWidth_(cfg.input_width), 
+    modelInputHeight_(cfg.input_height), 
+    sourceWidth_(cfg.source_width), 
+    sourceHeight_(cfg.source_height), 
+    numClasses_(cfg.num_classes) {
+        trt_infer_ = std::make_unique<TRTInfer>(cfg.engine_path);
+    }
 
-cv::Mat YOLOv8Model::preprocess(const cv::Mat& frame) {
+cv::Mat YOLOv8Model::preprocess_(const cv::Mat& frame) {
+    ScopedTimer timer("Preprocess");
     cv::Mat blob;
     cv::dnn::blobFromImage(
         frame, blob,
@@ -23,7 +26,8 @@ cv::Mat YOLOv8Model::preprocess(const cv::Mat& frame) {
     return blob; // shape: [1, 3, H, W] — already NCHW, ready to feed the engine
 }
 
-std::vector<Detection> YOLOv8Model::postprocess(const std::vector<float>& rawOutput) {
+std::vector<Detection> YOLOv8Model::postprocess_(const std::vector<float>& rawOutput) {
+    ScopedTimer timer("Postprocess");
     //const int numAttrs = 4 + static_cast<int>(classNames.size()); // 84 for COCO
     const int numAttrs = 4 + numClasses_;
     const int numAnchors = numAttrs * 100;
@@ -55,8 +59,6 @@ std::vector<Detection> YOLOv8Model::postprocess(const std::vector<float>& rawOut
         float cy = rawOutput[1 * numAnchors + a];
         float w  = rawOutput[2 * numAnchors + a];
         float h  = rawOutput[3 * numAnchors + a];
-        
-        std::cout << cx << " " << cy << " " << w << " " << h << std::endl;
 
         float x1 = (cx - w / 2.f) * widthScaleRatio;
         float y1 = (cy - h / 2.f) * heightScaleRatio;
@@ -92,4 +94,9 @@ std::vector<Detection> YOLOv8Model::postprocess(const std::vector<float>& rawOut
     }
 
     return detections;
+}
+
+std::vector<float> YOLOv8Model::infer_(const cv::Mat& frame){
+    ScopedTimer timer("Inference");
+    return trt_infer_->infer(frame);
 }

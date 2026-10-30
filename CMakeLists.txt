@@ -22,9 +22,11 @@ link_directories(${TENSORRT_LIB_DIR})
 
 add_executable(orin_detector
     src/main.cpp
-    src/trt_infer.cpp
-    src/config.cpp
-    src/yolov8_model.cpp
+    src/infer/trt_infer.cpp
+    src/utils/config.cpp
+    src/models/performance_metrics.cpp
+    #src/models/yolov8_model.cpp
+    src/models/rfdetr_model.cpp
 )
 
 target_compile_definitions(orin_detector PRIVATE

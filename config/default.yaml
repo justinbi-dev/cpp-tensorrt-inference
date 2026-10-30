@@ -1,7 +1,10 @@
-engine_path: "models/yolov8n_fp16.engine"
+engine_path: "models/output/rfdetr-large-fp16.engine"
 conf_threshold: 0.25
 nms_threshold: 0.45
-input_width: 640
-input_height: 640
+input_width: 704
+input_height: 704
+source_width: 1920
+source_height: 1080
+num_classes: 91
 input_source: "data/sample.mp4"
 enable_profiling: true

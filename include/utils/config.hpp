@@ -11,6 +11,9 @@ struct DetectorConfig {
     float nms_threshold = 0.45f;         ///< IoU threshold for NMS suppression, [0, 1].
     int input_width = 640;               ///< Model input width, in pixels.
     int input_height = 640;              ///< Model input height, in pixels.
+    int source_width = 1920;
+    int source_height = 1080;
+    int num_classes = 80;
     std::string input_source;            ///< "camera" or a path to a video/image file.
     bool enable_profiling = false;       ///< If true, records per-stage timing.
 };

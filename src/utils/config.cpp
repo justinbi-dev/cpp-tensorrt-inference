@@ -1,5 +1,5 @@
 #include <yaml-cpp/yaml.h>
-#include "config.hpp"
+#include "utils/config.hpp"
 #include <stdexcept>
 
 std::string resolvePath(const std::filesystem::path& baseDir,  const std::string& inputPath) {
@@ -30,6 +30,9 @@ DetectorConfig loadConfig(const std::string& path) {
     cfg.nms_threshold      = node["nms_threshold"].as<float>(0.45f);
     cfg.input_width        = node["input_width"].as<int>(640);
     cfg.input_height       = node["input_height"].as<int>(640);
+    cfg.source_width        = node["source_width"].as<int>(1920);
+    cfg.source_height       = node["source_height"].as<int>(1080);
+    cfg.num_classes       = node["num_classes"].as<int>(80);
     cfg.input_source      = node["input_source"].as<std::string>("camera");
     cfg.enable_profiling  = node["enable_profiling"].as<bool>(false);
 
