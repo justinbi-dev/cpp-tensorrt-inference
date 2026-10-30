@@ -14,15 +14,12 @@ RFDETRModel::RFDETRModel(const DetectorConfig& cfg)
 cv::Mat RFDETRModel::preprocess_(const cv::Mat& frame) {
     ManualTimer timer;
     timer.start_timer();
-    cv::Mat blob;
-    cv::dnn::blobFromImage(
-        frame, blob,
-        1.0 / 255.0,           // scale factor -> normalizes uint8 [0,255] to float [0,1]
-        cv::Size(modelInputWidth_, modelInputHeight_),            // resize to this (e.g. 640x640)
-        cv::Scalar(123.68, 116.78, 103.94),   // mean subtraction (YOLO models: none)
-        true,                  // swapRB -> BGR to RGB
-        false                  // crop
-    );
+    cv::dnn::Image2BlobParams params(
+        cv::Scalar(1.0 / (255 * 0.229), 1.0 / (255 * 0.224), 1.0 / (255 * 0.225)),  // 1/(255*std)
+        cv::Size(modelInputWidth_, modelInputHeight_),
+        cv::Scalar(123.675, 116.28, 103.53),                                        // 255*mean
+        true);                                                                       // swapRB
+    cv::Mat blob = cv::dnn::blobFromImageWithParams(frame, params);
 
     metrics.preprocess_ms = timer.get_ms();
     return blob; // shape: [1, 3, H, W] — already NCHW, ready to feed the engine
@@ -72,7 +69,7 @@ std::vector<Detection> RFDETRModel::postprocess_(InferenceResult& inference_resu
 
         
         Detection d;
-        d.box = {x1, x2, y1, y2};
+        d.box = {x1, y1, x2, y2};
         d.confidence = bestScore;
         d.class_id = bestClass;
         //d.class_name = classNames[classIds[idx]];
