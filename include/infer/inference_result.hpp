@@ -1,5 +1,8 @@
 #pragma once
 #include <vector>
+#include <unordered_map>
+#include <string>
+#include <stdexcept>
 
 struct InferenceMetrics {
     float h2d_ms = 0.0f;
@@ -10,5 +13,12 @@ struct InferenceMetrics {
 
 struct InferenceResult {
     InferenceMetrics metrics;
-    std::vector<std::vector<float>> out_host_buffers;
+    std::unordered_map<std::string, std::vector<float>> out_host_buffers;
+
+    const std::vector<float>& get(const std::string& name) const {
+        auto it = out_host_buffers.find(name);
+        if (it == out_host_buffers.end())
+            throw std::runtime_error("No output tensor named '" + name + "'");
+        return it->second;
+    }
 };

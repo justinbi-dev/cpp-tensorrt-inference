@@ -35,13 +35,15 @@ std::vector<Detection> RFDETRModel::postprocess_(InferenceResult& inference_resu
     
     detections.clear();
 
-    std::transform(inference_result.out_host_buffers[1].begin(), inference_result.out_host_buffers[1].end(), inference_result.out_host_buffers[1].begin(), [](double x) {return 1.0 / (1.0 + std::exp(-x));});
+    const std::vector<float>& labels = inference_result.get("labels");
+    const std::vector<float>& dets   = inference_result.get("dets");
+    //std::transform(labels.begin(), labels.end(), labels.begin(), [](double x) {return 1.0 / (1.0 + std::exp(-x));});
 
     for (int i = 0; i < 300; ++i) {
         float bestScore = 0.f;
         int bestClass = -1;
         for (int c = 0; c < numClasses_; ++c) {
-            float score = inference_result.out_host_buffers[1][(numClasses_*i) + c];
+            float score = 1.0 / (1.0 + std::exp(-labels[(numClasses_*i) + c]));
             if (score > bestScore) {
                 bestScore = score;
                 bestClass = c;
@@ -50,10 +52,10 @@ std::vector<Detection> RFDETRModel::postprocess_(InferenceResult& inference_resu
         //std::cout << bestScore << std::endl;
         if (bestScore < confThresh_) continue;
 
-        float cx = inference_result.out_host_buffers[0][(4*i)];
-        float cy = inference_result.out_host_buffers[0][(4*i)+1];
-        float w = inference_result.out_host_buffers[0][(4*i)+2];
-        float h = inference_result.out_host_buffers[0][(4*i)+3];
+        float cx = dets[(4*i)];
+        float cy = dets[(4*i)+1];
+        float w = dets[(4*i)+2];
+        float h = dets[(4*i)+3];
 
 
 
