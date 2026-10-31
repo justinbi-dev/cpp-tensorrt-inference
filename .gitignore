@@ -1,4 +1,7 @@
-.vscode/
 build/
+.vscode/
 data/
-models/
+models/.venv/
+*.engine
+*.onnx
+*.pt

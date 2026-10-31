@@ -14,15 +14,12 @@ RFDETRModel::RFDETRModel(const DetectorConfig& cfg)
 cv::Mat RFDETRModel::preprocess_(const cv::Mat& frame) {
     ManualTimer timer;
     timer.start_timer();
-    cv::Mat blob;
-    cv::dnn::blobFromImage(
-        frame, blob,
-        1.0 / 255.0,           // scale factor -> normalizes uint8 [0,255] to float [0,1]
-        cv::Size(modelInputWidth_, modelInputHeight_),            // resize to this (e.g. 640x640)
-        cv::Scalar(123.68, 116.78, 103.94),   // mean subtraction (YOLO models: none)
-        true,                  // swapRB -> BGR to RGB
-        false                  // crop
-    );
+    cv::dnn::Image2BlobParams params(
+        cv::Scalar(1.0 / (255 * 0.229), 1.0 / (255 * 0.224), 1.0 / (255 * 0.225)),  // 1/(255*std)
+        cv::Size(modelInputWidth_, modelInputHeight_),
+        cv::Scalar(123.675, 116.28, 103.53),                                        // 255*mean
+        true);                                                                       // swapRB
+    cv::Mat blob = cv::dnn::blobFromImageWithParams(frame, params);
 
     metrics.preprocess_ms = timer.get_ms();
     return blob; // shape: [1, 3, H, W] — already NCHW, ready to feed the engine
@@ -38,13 +35,15 @@ std::vector<Detection> RFDETRModel::postprocess_(InferenceResult& inference_resu
     
     detections.clear();
 
-    std::transform(inference_result.out_host_buffers[1].begin(), inference_result.out_host_buffers[1].end(), inference_result.out_host_buffers[1].begin(), [](double x) {return 1.0 / (1.0 + std::exp(-x));});
+    const std::vector<float>& labels = inference_result.get("labels");
+    const std::vector<float>& dets   = inference_result.get("dets");
+    //std::transform(labels.begin(), labels.end(), labels.begin(), [](double x) {return 1.0 / (1.0 + std::exp(-x));});
 
     for (int i = 0; i < 300; ++i) {
         float bestScore = 0.f;
         int bestClass = -1;
         for (int c = 0; c < numClasses_; ++c) {
-            float score = inference_result.out_host_buffers[1][(numClasses_*i) + c];
+            float score = 1.0 / (1.0 + std::exp(-labels[(numClasses_*i) + c]));
             if (score > bestScore) {
                 bestScore = score;
                 bestClass = c;
@@ -53,10 +52,10 @@ std::vector<Detection> RFDETRModel::postprocess_(InferenceResult& inference_resu
         //std::cout << bestScore << std::endl;
         if (bestScore < confThresh_) continue;
 
-        float cx = inference_result.out_host_buffers[0][(4*i)];
-        float cy = inference_result.out_host_buffers[0][(4*i)+1];
-        float w = inference_result.out_host_buffers[0][(4*i)+2];
-        float h = inference_result.out_host_buffers[0][(4*i)+3];
+        float cx = dets[(4*i)];
+        float cy = dets[(4*i)+1];
+        float w = dets[(4*i)+2];
+        float h = dets[(4*i)+3];
 
 
 
@@ -72,7 +71,7 @@ std::vector<Detection> RFDETRModel::postprocess_(InferenceResult& inference_resu
 
         
         Detection d;
-        d.box = {x1, x2, y1, y2};
+        d.box = {x1, y1, x2, y2};
         d.confidence = bestScore;
         d.class_id = bestClass;
         //d.class_name = classNames[classIds[idx]];

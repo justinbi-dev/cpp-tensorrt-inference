@@ -3,14 +3,52 @@
 #include <fstream>
 #include <cuda_runtime_api.h>
 
+namespace {
+
 class Logger : public nvinfer1::ILogger {
     void log(Severity severity, const char* msg) noexcept override {
         if (severity <= Severity::kWARNING)
             fprintf(stderr, "[TRT] %s\n", msg);
     }
 };
-static Logger gLogger;
+Logger gLogger;
 
+size_t elementSize(nvinfer1::DataType dtype) {
+    using nvinfer1::DataType;
+    switch (dtype) {
+        case DataType::kFLOAT: return 4;
+        case DataType::kINT64: return 8;
+        case DataType::kINT32: return 4;
+        case DataType::kBF16:  return 2;
+        case DataType::kHALF:  return 2;
+        case DataType::kINT8:  return 1;
+        case DataType::kUINT8: return 1;
+        case DataType::kBOOL:  return 1;
+        case DataType::kFP8:   return 1;
+        case DataType::kINT4:  break;
+    }
+    throw std::runtime_error("Unsupported TensorRT data type: " +
+                             std::to_string(static_cast<int>(dtype)));
+}
+
+std::string nvinferTypeToString(nvinfer1::DataType dtype) {
+    using nvinfer1::DataType;
+    switch (dtype) {
+        case DataType::kFLOAT: return "kFLOAT (32-bit Float)";
+        case DataType::kINT64: return "kINT64 (64-bit Int)";
+        case DataType::kINT32: return "kINT32 (32-bit Int)";
+        case DataType::kBF16:  return "kBF16 (16-bit Brain Float)";
+        case DataType::kHALF:  return "kHALF (16-bit Float)";
+        case DataType::kINT8:  return "kINT8 (8-bit Quantized Int)";
+        case DataType::kUINT8: return "kUINT8 (8-bit Unsigned Int)";
+        case DataType::kBOOL:  return "kBOOL (1-bit Boolean)";
+        case DataType::kFP8:   return "kFP8 (8-bit Float)";
+        case DataType::kINT4:  break;
+    }
+    throw std::runtime_error("Unsupported TensorRT data type: " +
+                             std::to_string(static_cast<int>(dtype)));
+}
+}  // namespace
 
 TRTInfer::TRTInfer(const std::string& path) {
     loadEngine(path);
@@ -43,43 +81,59 @@ void TRTInfer::loadEngine(const std::string& path) {
     context_.reset(engine_->createExecutionContext());
 }
 void TRTInfer::allocateBuffers() {
-    int numIO = engine_->getNbIOTensors();
+    const int numIO = engine_->getNbIOTensors();
+    tensors_.reserve(numIO);
 
     for (int i = 0; i < numIO; ++i) {
-        const char* name = engine_->getIOTensorName(i);
-        bool isInput = (engine_->getTensorIOMode(name) == nvinfer1::TensorIOMode::kINPUT);
-        nvinfer1::Dims dims = engine_->getTensorShape(name);
-
-        std::cout << "Tensor Binding " << i << ": " << name << (isInput ? "(input tensor) " : "(output tensor) ") << "with shape: [";
+        TensorInfo info;
+        info.name = engine_->getIOTensorName(i);
+        info.is_input = (engine_->getTensorIOMode(info.name.c_str()) == nvinfer1::TensorIOMode::kINPUT);
+        info.dtype = engine_->getTensorDataType(info.name.c_str());
+        nvinfer1::Dims dims = engine_->getTensorShape(info.name.c_str());
 
         size_t elemCount = 1;
-        std::vector<int64_t> shape;
-
+        
         for (int d = 0; d < dims.nbDims; ++d) {
-            std::cout << dims.d[d] << ", ";
+            if (dims.d[d] < 0)
+                throw std::runtime_error("Dynamic shape detected in tensor binding in " + info.name + " at dimension " + std::to_string(d));
+            info.shape.push_back(dims.d[d]);
             elemCount *= dims.d[d];
-            shape.push_back(dims.d[d]);
-        }
-        std::cout << "]" << std::endl;
-
-        size_t bytes = elemCount * sizeof(float);
-
-        void* device_buffer;
-        cudaMalloc(&device_buffer, bytes);
-        if (isInput) {
-            in_device_buffers_.push_back(device_buffer);
-            in_shapes.push_back(shape);
-
-        } else {
-            out_device_buffers_.push_back(device_buffer);
-            out_shapes.push_back(shape);
-            output_.out_host_buffers.emplace_back(elemCount);
         }
 
-        context_->setTensorAddress(name, device_buffer);
+        info.bytes = elemCount * elementSize(info.dtype);
+
+        if (cudaMalloc(&info.device_buffer, info.bytes) != cudaSuccess)
+            throw std::runtime_error("cudaMalloc failed for tensor " + info.name);
+        context_->setTensorAddress(info.name.c_str(), info.device_buffer);
+
+        if (info.is_input) {
+            input_indices_.push_back(tensors_.size());
+        }
+        else {
+            if (info.dtype != nvinfer1::DataType::kFLOAT){
+                throw std::runtime_error("TRT Infer currently only supports floating point outputs. Tensor " + info.name + " is of type " + nvinferTypeToString(info.dtype));
+            }
+            output_indices_.push_back(tensors_.size());
+            output_.out_host_buffers.emplace(info.name, std::vector<float>(info.bytes / sizeof(float)));
+        }
+        tensors_.push_back(std::move(info));
+
+    }
+
+    if (input_indices_.size() != 1) {
+        throw std::runtime_error("TRTInfer currently only supports a single input tensor; engine has " + std::to_string(input_indices_.size()));
     }
 }
+
 InferenceResult TRTInfer::infer(const cv::Mat& blob) {
+    const TensorInfo& in = tensors_[input_indices_[0]];
+    const size_t blob_bytes = blob.total() * blob.elemSize();
+    if (blob_bytes != in.bytes) {
+        throw std::runtime_error("Input size mismatch for '" + in.name + "': got " +
+                                std::to_string(blob_bytes) + " bytes, engine expects " +
+                                std::to_string(in.bytes));
+    }
+
     cudaEvent_t start, afterH2D, afterInfer, afterD2H;
     cudaEventCreate(&start);
     cudaEventCreate(&afterH2D);
@@ -88,17 +142,15 @@ InferenceResult TRTInfer::infer(const cv::Mat& blob) {
 
     cudaEventRecord(start, stream_);
 
-    cudaMemcpyAsync(in_device_buffers_[0], blob.ptr<float>(), blob.total() * sizeof(float),
-                     cudaMemcpyHostToDevice, stream_);
+    cudaMemcpyAsync(in.device_buffer, blob.ptr<float>(), in.bytes, cudaMemcpyHostToDevice, stream_);
     cudaEventRecord(afterH2D, stream_);
 
     context_->enqueueV3(stream_);
     cudaEventRecord(afterInfer, stream_);
 
-    for (int i = 0; i < out_device_buffers_.size(); ++i) {
-        cudaMemcpyAsync(output_.out_host_buffers[i].data(), out_device_buffers_[i],
-                         output_.out_host_buffers[i].size() * sizeof(float),
-                         cudaMemcpyDeviceToHost, stream_);
+    for (int i = 0; i < output_indices_.size(); ++i) {
+        const TensorInfo& out = tensors_[output_indices_[i]];
+        cudaMemcpyAsync(output_.out_host_buffers.at(out.name).data(), out.device_buffer, out.bytes, cudaMemcpyDeviceToHost, stream_);
     }
     cudaEventRecord(afterD2H, stream_);
 
@@ -110,14 +162,6 @@ InferenceResult TRTInfer::infer(const cv::Mat& blob) {
     cudaEventElapsedTime(&output_.metrics.d2h_ms, afterInfer, afterD2H);
     cudaEventElapsedTime(&output_.metrics.total_ms, start, afterD2H);
 
-    // std::cout << "\r\033[K[TRTInfer] "
-    //         << std::fixed << std::setprecision(3)
-    //         << "H2D copy: " << h2d_ms << " ms | "
-    //         << "Inference: " << infer_ms << " ms | "
-    //         << "D2H copy: " << d2h_ms << " ms | "
-    //         << "Total: " << total_ms << " ms"
-    //         << std::flush; // Crucial: forces immediate console update
-
     cudaEventDestroy(start);
     cudaEventDestroy(afterH2D);
     cudaEventDestroy(afterInfer);
@@ -127,11 +171,6 @@ InferenceResult TRTInfer::infer(const cv::Mat& blob) {
 }
 
 TRTInfer::~TRTInfer() {
-    for (int i = 0; i < in_device_buffers_.size(); i++){
-        cudaFree(in_device_buffers_[i]);
-    }
-    for (int i = 0; i < out_device_buffers_.size(); i++){
-        cudaFree(out_device_buffers_[i]);
-    }
+    for (auto& t : tensors_) cudaFree(t.device_buffer);
     cudaStreamDestroy(stream_);
 }
