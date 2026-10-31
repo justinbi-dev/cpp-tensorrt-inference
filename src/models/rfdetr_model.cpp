@@ -2,7 +2,6 @@
 
 RFDETRModel::RFDETRModel(const DetectorConfig& cfg)
     : confThresh_(cfg.conf_threshold), 
-    nmsThresh_(cfg.nms_threshold), 
     modelInputWidth_(cfg.input_width), 
     modelInputHeight_(cfg.input_height), 
     sourceWidth_(cfg.source_width), 

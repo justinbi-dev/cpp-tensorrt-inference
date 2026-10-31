@@ -25,7 +25,6 @@ add_executable(orin_detector
     src/infer/trt_infer.cpp
     src/utils/config.cpp
     src/models/performance_metrics.cpp
-    #src/models/yolov8_model.cpp
     src/models/rfdetr_model.cpp
 )
 

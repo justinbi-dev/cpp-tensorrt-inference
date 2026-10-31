@@ -27,7 +27,6 @@ DetectorConfig loadConfig(const std::string& path) {
     DetectorConfig cfg;
     cfg.engine_path      = node["engine_path"].as<std::string>();
     cfg.conf_threshold    = node["conf_threshold"].as<float>(0.5f);
-    cfg.nms_threshold      = node["nms_threshold"].as<float>(0.45f);
     cfg.input_width        = node["input_width"].as<int>(640);
     cfg.input_height       = node["input_height"].as<int>(640);
     cfg.source_width        = node["source_width"].as<int>(1920);

@@ -1,4 +1,3 @@
-//#include "models/yolov8_model.hpp"
 #include "models/rfdetr_model.hpp"
 #include "utils/timer.hpp"
 #include <opencv2/opencv.hpp>

@@ -22,7 +22,7 @@ private:
     std::vector<Detection> postprocess_(InferenceResult& inference_result) override;
 
     std::string enginePath;
-    float confThresh_, nmsThresh_;
+    float confThresh_;
     uint modelInputWidth_, modelInputHeight_, sourceWidth_, sourceHeight_, numClasses_;
     PerformanceMetrics metrics;
     std::vector<Detection> detections;
