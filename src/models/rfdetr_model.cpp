@@ -1,13 +1,16 @@
 #include "models/rfdetr_model.hpp"
 
 RFDETRModel::RFDETRModel(const DetectorConfig& cfg)
-    : confThresh_(cfg.conf_threshold), 
-    modelInputWidth_(cfg.input_width), 
-    modelInputHeight_(cfg.input_height), 
-    sourceWidth_(cfg.source_width), 
-    sourceHeight_(cfg.source_height), 
-    numClasses_(cfg.num_classes) {
+    : confThresh_(cfg.conf_threshold) {
         trt_infer_ = std::make_unique<TRTInfer>(cfg.engine_path);
+        const TensorInfo& input_info = trt_infer_->inputTensorInfo();
+        if (input_info.shape.size() != 4) throw std::runtime_error("Input tensor has: " + std::to_string(input_info.shape.size()) + " dimensions. Expected 4 dimensions.");
+        modelInputHeight_ = static_cast<int>(input_info.shape[2]);
+        modelInputWidth_ = static_cast<int>(input_info.shape[3]);
+        const TensorInfo& label_info = trt_infer_->outputTensorInfo("labels");
+        if (label_info.shape.size() != 3) throw std::runtime_error("Output label tensor has: " + std::to_string(input_info.shape.size()) + " dimensions. Expected 3 dimensions.");
+        numClasses_ = static_cast<int>(label_info.shape[2]);
+        numQueries_ = static_cast<int>(label_info.shape[1]);
     }
 
 cv::Mat RFDETRModel::preprocess_(const cv::Mat& frame) {
@@ -24,21 +27,18 @@ cv::Mat RFDETRModel::preprocess_(const cv::Mat& frame) {
     return blob; // shape: [1, 3, H, W] — already NCHW, ready to feed the engine
 }
 
-std::vector<Detection> RFDETRModel::postprocess_(InferenceResult& inference_result) {
+std::vector<Detection> RFDETRModel::postprocess_(const InferenceResult& inference_result, int sourceWidth, int sourceHeight) {
     ManualTimer timer;
     timer.start_timer();
     metrics.inference_metrics = inference_result.metrics;
 
-    float widthScaleRatio = static_cast<float>(sourceWidth_);
-    float heightScaleRatio = static_cast<float>(sourceHeight_);
-    
     detections.clear();
 
     const std::vector<float>& labels = inference_result.get("labels");
     const std::vector<float>& dets   = inference_result.get("dets");
-    //std::transform(labels.begin(), labels.end(), labels.begin(), [](double x) {return 1.0 / (1.0 + std::exp(-x));});
 
-    for (int i = 0; i < 300; ++i) {
+
+    for (int i = 0; i < numQueries_; ++i) {
         float bestScore = 0.f;
         int bestClass = -1;
         for (int c = 0; c < numClasses_; ++c) {
@@ -48,7 +48,6 @@ std::vector<Detection> RFDETRModel::postprocess_(InferenceResult& inference_resu
                 bestClass = c;
             }
         }
-        //std::cout << bestScore << std::endl;
         if (bestScore < confThresh_) continue;
 
         float cx = dets[(4*i)];
@@ -58,15 +57,15 @@ std::vector<Detection> RFDETRModel::postprocess_(InferenceResult& inference_resu
 
 
 
-        float x1 = (cx - w / 2.f) * widthScaleRatio;
-        float y1 = (cy - h / 2.f) * heightScaleRatio;
-        float x2 = (cx + w / 2.f) * widthScaleRatio;
-        float y2 = (cy + h / 2.f) * heightScaleRatio;
+        float x1 = (cx - w / 2.f) * static_cast<float>(sourceWidth);
+        float y1 = (cy - h / 2.f) * static_cast<float>(sourceHeight);
+        float x2 = (cx + w / 2.f) * static_cast<float>(sourceWidth);
+        float y2 = (cy + h / 2.f) * static_cast<float>(sourceHeight);
         // Clamp to image bounds
-        x1 = std::clamp(x1, 0.f, static_cast<float>(sourceWidth_));
-        y1 = std::clamp(y1, 0.f, static_cast<float>(sourceHeight_));
-        x2 = std::clamp(x2, 0.f, static_cast<float>(sourceWidth_));
-        y2 = std::clamp(y2, 0.f, static_cast<float>(sourceHeight_));
+        x1 = std::clamp(x1, 0.f, static_cast<float>(sourceWidth));
+        y1 = std::clamp(y1, 0.f, static_cast<float>(sourceHeight));
+        x2 = std::clamp(x2, 0.f, static_cast<float>(sourceWidth));
+        y2 = std::clamp(y2, 0.f, static_cast<float>(sourceHeight));
 
         
         Detection d;
@@ -77,7 +76,6 @@ std::vector<Detection> RFDETRModel::postprocess_(InferenceResult& inference_resu
         d.class_name = "";
         detections.push_back(d);
     }
-
     metrics.postprocess_ms = timer.get_ms();
 
     return detections;
@@ -96,7 +94,7 @@ std::vector<Detection> RFDETRModel::detect(const cv::Mat& frame) {
     timer.start_timer();
     cv::Mat input = preprocess_(frame);
     InferenceResult raw_output = infer_(input);
-    postprocess_(raw_output);
+    postprocess_(raw_output, frame.cols, frame.rows);
     metrics.total_ms = timer.get_ms();
     metrics.print(std::cout);
     return detections;

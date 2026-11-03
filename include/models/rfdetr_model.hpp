@@ -19,11 +19,11 @@ public:
 private:
     cv::Mat preprocess_(const cv::Mat& frame) override;
     InferenceResult infer_(const cv::Mat& frame) override;
-    std::vector<Detection> postprocess_(InferenceResult& inference_result) override;
+    std::vector<Detection> postprocess_(const InferenceResult& inference_result, int sourceWidth, int sourceHeight) override;
 
     std::string enginePath;
     float confThresh_;
-    uint modelInputWidth_, modelInputHeight_, sourceWidth_, sourceHeight_, numClasses_;
+    int modelInputWidth_, modelInputHeight_, numClasses_, numQueries_;
     PerformanceMetrics metrics;
     std::vector<Detection> detections;
 };

@@ -19,5 +19,5 @@ public:
 private:      
     virtual cv::Mat preprocess_(const cv::Mat& frame) = 0;
     virtual InferenceResult infer_(const cv::Mat& frame) = 0;
-    virtual std::vector<Detection> postprocess_(InferenceResult& inference_result) = 0;
+    virtual std::vector<Detection> postprocess_(const InferenceResult& inference_result, int sourceWidth, int sourceHeight) = 0;
 };
