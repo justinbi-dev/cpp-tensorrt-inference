@@ -85,26 +85,27 @@ void TRTInfer::allocateBuffers() {
     tensors_.reserve(numIO);
 
     for (int i = 0; i < numIO; ++i) {
-        TensorInfo info;
+        TensorBinding tensor;
+        TensorInfo& info = tensor.info;
         info.name = engine_->getIOTensorName(i);
         info.is_input = (engine_->getTensorIOMode(info.name.c_str()) == nvinfer1::TensorIOMode::kINPUT);
         info.dtype = engine_->getTensorDataType(info.name.c_str());
         nvinfer1::Dims dims = engine_->getTensorShape(info.name.c_str());
 
-        size_t elemCount = 1;
+        size_t num_tensor_elements = 1;
         
-        for (int d = 0; d < dims.nbDims; ++d) {
+        for (int d = 0; d < dims.nbDims; d++) {
             if (dims.d[d] < 0)
                 throw std::runtime_error("Dynamic shape detected in tensor binding in " + info.name + " at dimension " + std::to_string(d));
             info.shape.push_back(dims.d[d]);
-            elemCount *= dims.d[d];
+            num_tensor_elements *= dims.d[d];
         }
 
-        info.bytes = elemCount * elementSize(info.dtype);
+        info.bytes = num_tensor_elements * elementSize(info.dtype);
 
-        if (cudaMalloc(&info.device_buffer, info.bytes) != cudaSuccess)
+        if (cudaMalloc(&tensor.device_buffer, info.bytes) != cudaSuccess)
             throw std::runtime_error("cudaMalloc failed for tensor " + info.name);
-        context_->setTensorAddress(info.name.c_str(), info.device_buffer);
+        context_->setTensorAddress(info.name.c_str(), tensor.device_buffer);
 
         if (info.is_input) {
             input_indices_.push_back(tensors_.size());
@@ -116,7 +117,7 @@ void TRTInfer::allocateBuffers() {
             output_indices_.push_back(tensors_.size());
             output_.out_host_buffers.emplace(info.name, std::vector<float>(info.bytes / sizeof(float)));
         }
-        tensors_.push_back(std::move(info));
+        tensors_.push_back(std::move(tensor));
 
     }
 
@@ -126,12 +127,12 @@ void TRTInfer::allocateBuffers() {
 }
 
 InferenceResult TRTInfer::infer(const cv::Mat& blob) {
-    const TensorInfo& in = tensors_[input_indices_[0]];
+    const TensorBinding& in = tensors_[input_indices_[0]];
     const size_t blob_bytes = blob.total() * blob.elemSize();
-    if (blob_bytes != in.bytes) {
-        throw std::runtime_error("Input size mismatch for '" + in.name + "': got " +
+    if (blob_bytes != in.info.bytes) {
+        throw std::runtime_error("Input size mismatch for '" + in.info.name + "': got " +
                                 std::to_string(blob_bytes) + " bytes, engine expects " +
-                                std::to_string(in.bytes));
+                                std::to_string(in.info.bytes));
     }
 
     cudaEvent_t start, afterH2D, afterInfer, afterD2H;
@@ -142,15 +143,15 @@ InferenceResult TRTInfer::infer(const cv::Mat& blob) {
 
     cudaEventRecord(start, stream_);
 
-    cudaMemcpyAsync(in.device_buffer, blob.ptr<float>(), in.bytes, cudaMemcpyHostToDevice, stream_);
+    cudaMemcpyAsync(in.device_buffer, blob.ptr<float>(), in.info.bytes, cudaMemcpyHostToDevice, stream_);
     cudaEventRecord(afterH2D, stream_);
 
     context_->enqueueV3(stream_);
     cudaEventRecord(afterInfer, stream_);
 
-    for (int i = 0; i < output_indices_.size(); ++i) {
-        const TensorInfo& out = tensors_[output_indices_[i]];
-        cudaMemcpyAsync(output_.out_host_buffers.at(out.name).data(), out.device_buffer, out.bytes, cudaMemcpyDeviceToHost, stream_);
+    for (size_t idx : output_indices_) {
+        const TensorBinding& out = tensors_[idx];
+        cudaMemcpyAsync(output_.out_host_buffers.at(out.info.name).data(), out.device_buffer, out.info.bytes, cudaMemcpyDeviceToHost, stream_);
     }
     cudaEventRecord(afterD2H, stream_);
 
@@ -168,6 +169,19 @@ InferenceResult TRTInfer::infer(const cv::Mat& blob) {
     cudaEventDestroy(afterD2H);
 
     return output_;
+}
+
+const TensorInfo& TRTInfer::inputTensorInfo() const {
+    return tensors_[input_indices_[0]].info;
+}
+
+const TensorInfo& TRTInfer::outputTensorInfo(const std::string& name) const {
+    for (size_t idx : output_indices_) {
+        if (tensors_[idx].info.name == name){
+            return tensors_[idx].info;
+        }
+    }
+    throw std::runtime_error("Tensor of name " + name + " not found.");
 }
 
 TRTInfer::~TRTInfer() {
