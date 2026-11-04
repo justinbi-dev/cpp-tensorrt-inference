@@ -4,11 +4,13 @@ RFDETRModel::RFDETRModel(const DetectorConfig& cfg)
     : confThresh_(cfg.conf_threshold) {
         trt_infer_ = std::make_unique<TRTInfer>(cfg.engine_path);
         const TensorInfo& input_info = trt_infer_->inputTensorInfo();
+
         if (input_info.shape.size() != 4) throw std::runtime_error("Input tensor has: " + std::to_string(input_info.shape.size()) + " dimensions. Expected 4 dimensions.");
         modelInputHeight_ = static_cast<int>(input_info.shape[2]);
         modelInputWidth_ = static_cast<int>(input_info.shape[3]);
+
         const TensorInfo& label_info = trt_infer_->outputTensorInfo("labels");
-        if (label_info.shape.size() != 3) throw std::runtime_error("Output label tensor has: " + std::to_string(input_info.shape.size()) + " dimensions. Expected 3 dimensions.");
+        if (label_info.shape.size() != 3) throw std::runtime_error("Output label tensor has: " + std::to_string(label_info.shape.size()) + " dimensions. Expected 3 dimensions.");
         numClasses_ = static_cast<int>(label_info.shape[2]);
         numQueries_ = static_cast<int>(label_info.shape[1]);
     }
@@ -23,16 +25,16 @@ cv::Mat RFDETRModel::preprocess_(const cv::Mat& frame) {
         true);                                                                       // swapRB
     cv::Mat blob = cv::dnn::blobFromImageWithParams(frame, params);
 
-    metrics.preprocess_ms = timer.get_ms();
+    metrics_.preprocess_ms = timer.get_ms();
     return blob; // shape: [1, 3, H, W] — already NCHW, ready to feed the engine
 }
 
 std::vector<Detection> RFDETRModel::postprocess_(const InferenceResult& inference_result, int sourceWidth, int sourceHeight) {
     ManualTimer timer;
     timer.start_timer();
-    metrics.inference_metrics = inference_result.metrics;
+    metrics_.inference_metrics = inference_result.metrics;
 
-    detections.clear();
+    std::vector<Detection> detections;
 
     const std::vector<float>& labels = inference_result.get("labels");
     const std::vector<float>& dets   = inference_result.get("dets");
@@ -76,7 +78,7 @@ std::vector<Detection> RFDETRModel::postprocess_(const InferenceResult& inferenc
         d.class_name = "";
         detections.push_back(d);
     }
-    metrics.postprocess_ms = timer.get_ms();
+    metrics_.postprocess_ms = timer.get_ms();
 
     return detections;
 }
@@ -85,7 +87,7 @@ InferenceResult RFDETRModel::infer_(const cv::Mat& frame){
     ManualTimer timer;
     timer.start_timer();
     InferenceResult result = trt_infer_->infer(frame);
-    metrics.infer_ms = timer.get_ms();
+    metrics_.infer_ms = timer.get_ms();
     return result;
 }
 
@@ -94,8 +96,8 @@ std::vector<Detection> RFDETRModel::detect(const cv::Mat& frame) {
     timer.start_timer();
     cv::Mat input = preprocess_(frame);
     InferenceResult raw_output = infer_(input);
-    postprocess_(raw_output, frame.cols, frame.rows);
-    metrics.total_ms = timer.get_ms();
-    metrics.print(std::cout);
+
+    std::vector<Detection> detections = postprocess_(raw_output, frame.cols, frame.rows);
+    metrics_.total_ms = timer.get_ms();
     return detections;
 }

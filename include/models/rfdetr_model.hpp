@@ -14,6 +14,8 @@ public:
     RFDETRModel(const DetectorConfig& cfg);
     std::vector<Detection> detect(const cv::Mat& frame) override;
     ~RFDETRModel() = default;
+
+    const PerformanceMetrics& metrics() const {return metrics_; }
       
 
 private:
@@ -21,9 +23,7 @@ private:
     InferenceResult infer_(const cv::Mat& frame) override;
     std::vector<Detection> postprocess_(const InferenceResult& inference_result, int sourceWidth, int sourceHeight) override;
 
-    std::string enginePath;
     float confThresh_;
     int modelInputWidth_, modelInputHeight_, numClasses_, numQueries_;
-    PerformanceMetrics metrics;
-    std::vector<Detection> detections;
+    PerformanceMetrics metrics_;
 };

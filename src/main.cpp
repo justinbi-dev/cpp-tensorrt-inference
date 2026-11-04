@@ -43,6 +43,7 @@ int main(int argc, char** argv) {
             continue; // Skip to the next iteration to read the first frame again
         }
         auto detections = detector->detect(frame);
+        if (config.enable_profiling) detector->metrics().print(std::cout);
         for (const auto& d : detections) {
             cv::Rect2f box(cv::Point2f(d.box.x1, d.box.y1), cv::Point2f(d.box.x2, d.box.y2));
             cv::rectangle(frame, box, {0, 255, 0}, 2);
