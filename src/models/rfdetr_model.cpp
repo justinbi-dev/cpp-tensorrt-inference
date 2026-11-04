@@ -16,8 +16,8 @@ RFDETRModel::RFDETRModel(const DetectorConfig& cfg)
     }
 
 cv::Mat RFDETRModel::preprocess_(const cv::Mat& frame) {
-    ManualTimer timer;
-    timer.start_timer();
+    ScopedTimer timer(metrics_.preprocess_ms);
+
     cv::dnn::Image2BlobParams params(
         cv::Scalar(1.0 / (255 * 0.229), 1.0 / (255 * 0.224), 1.0 / (255 * 0.225)),  // 1/(255*std)
         cv::Size(modelInputWidth_, modelInputHeight_),
@@ -25,13 +25,12 @@ cv::Mat RFDETRModel::preprocess_(const cv::Mat& frame) {
         true);                                                                       // swapRB
     cv::Mat blob = cv::dnn::blobFromImageWithParams(frame, params);
 
-    metrics_.preprocess_ms = timer.get_ms();
     return blob; // shape: [1, 3, H, W] — already NCHW, ready to feed the engine
 }
 
 std::vector<Detection> RFDETRModel::postprocess_(const InferenceResult& inference_result, int sourceWidth, int sourceHeight) {
-    ManualTimer timer;
-    timer.start_timer();
+    ScopedTimer timer(metrics_.postprocess_ms);
+
     metrics_.inference_metrics = inference_result.metrics;
 
     std::vector<Detection> detections;
@@ -78,26 +77,21 @@ std::vector<Detection> RFDETRModel::postprocess_(const InferenceResult& inferenc
         d.class_name = "";
         detections.push_back(d);
     }
-    metrics_.postprocess_ms = timer.get_ms();
 
     return detections;
 }
 
 InferenceResult RFDETRModel::infer_(const cv::Mat& frame){
-    ManualTimer timer;
-    timer.start_timer();
+    ScopedTimer timer(metrics_.infer_ms);
+
     InferenceResult result = trt_infer_->infer(frame);
-    metrics_.infer_ms = timer.get_ms();
     return result;
 }
 
 std::vector<Detection> RFDETRModel::detect(const cv::Mat& frame) {
-    ManualTimer timer;
-    timer.start_timer();
+    ScopedTimer timer(metrics_.total_ms);
     cv::Mat input = preprocess_(frame);
     InferenceResult raw_output = infer_(input);
 
-    std::vector<Detection> detections = postprocess_(raw_output, frame.cols, frame.rows);
-    metrics_.total_ms = timer.get_ms();
-    return detections;
+    return postprocess_(raw_output, frame.cols, frame.rows);
 }

@@ -1,7 +1,6 @@
 #include "models/rfdetr_model.hpp"
 #include <iostream>
 #include <memory>
-#include "utils/timer.hpp"
 #include <opencv2/opencv.hpp>
 #include <utils/config.hpp>
 
