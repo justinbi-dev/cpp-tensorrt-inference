@@ -1,23 +1,21 @@
 #include "models/rfdetr_model.hpp"
+#include <iostream>
+#include <memory>
 #include "utils/timer.hpp"
 #include <opencv2/opencv.hpp>
 #include <utils/config.hpp>
 
-#ifndef PROJECT_ROOT_DIR
-#define PROJECT_ROOT_DIR "."
-#endif
-
 int main(int argc, char** argv) {
-
-    std::string configPath = resolvePath(std::string(PROJECT_ROOT_DIR), "config/default.yaml");
-    if (argc > 1) {
-        configPath = resolvePath(std::string(PROJECT_ROOT_DIR), argv[1]);
+    std::string configPath = "config/default.yaml";
+    if (argc > 1){
+        configPath = argv[1];
     }
-    else {
-        std::cerr << "No config path specified. Falling back to default path. \n";
+    else{
+        std::cerr << "No config path specified. Falling back to " << configPath << "\n";
     }
 
     DetectorConfig config;
+
     try {
         config = loadConfig(configPath);
     } catch (const std::exception& e) {
@@ -25,13 +23,18 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    config.engine_path = resolvePath(std::string(PROJECT_ROOT_DIR), config.engine_path);
-    auto detector = std::make_unique<RFDETRModel>(config);
+    std::unique_ptr<RFDETRModel> detector;
+    try {
+        detector = std::make_unique<RFDETRModel>(config);
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Failed to initialize RF-DETR Model: " << e.what() << "\n";
+        return 1;
+    }
 
-    cv::VideoCapture source(resolvePath(std::string(PROJECT_ROOT_DIR), config.input_source));
+    cv::VideoCapture source(config.input_source);
     cv::Mat frame;
 
-    
     while (source.isOpened()) {
         bool ret = source.read(frame);
         if (!ret) {

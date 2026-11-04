@@ -1,4 +1,4 @@
-engine_path: "models/output/rfdetr-large-fp16.engine"
+engine_path: "../models/output/rfdetr-large-fp16.engine"
 conf_threshold: 0.25
-input_source: "data/sample.mp4"
+input_source: "../data/sample.mp4"
 enable_profiling: true

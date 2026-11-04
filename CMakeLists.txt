@@ -28,10 +28,6 @@ add_executable(orin_detector
     src/models/rfdetr_model.cpp
 )
 
-target_compile_definitions(orin_detector PRIVATE
-    PROJECT_ROOT_DIR="${CMAKE_SOURCE_DIR}"
-)
-
 target_link_libraries(orin_detector
     ${OpenCV_LIBS}
     ${CUDA_LIBRARIES}
