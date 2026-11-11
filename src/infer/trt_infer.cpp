@@ -126,7 +126,7 @@ void TRTInfer::allocateBuffers() {
     }
 }
 
-InferenceResult TRTInfer::infer(const cv::Mat& blob) {
+const InferenceResult& TRTInfer::infer(const cv::Mat& blob) {
     const TensorBinding& in = tensors_[input_indices_[0]];
     const size_t blob_bytes = blob.total() * blob.elemSize();
     if (blob_bytes != in.info.bytes) {

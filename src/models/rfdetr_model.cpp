@@ -81,17 +81,16 @@ std::vector<Detection> RFDETRModel::postprocess_(const InferenceResult& inferenc
     return detections;
 }
 
-InferenceResult RFDETRModel::infer_(const cv::Mat& frame){
+const InferenceResult& RFDETRModel::infer_(const cv::Mat& frame){
     ScopedTimer timer(metrics_.infer_ms);
 
-    InferenceResult result = trt_infer_->infer(frame);
-    return result;
+    return trt_infer_->infer(frame);
 }
 
 std::vector<Detection> RFDETRModel::detect(const cv::Mat& frame) {
     ScopedTimer timer(metrics_.total_ms);
     cv::Mat input = preprocess_(frame);
-    InferenceResult raw_output = infer_(input);
+    const InferenceResult& raw_output = infer_(input);
 
     return postprocess_(raw_output, frame.cols, frame.rows);
 }

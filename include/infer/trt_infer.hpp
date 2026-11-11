@@ -21,7 +21,8 @@ public:
     TRTInfer(const TRTInfer&) = delete;
     TRTInfer& operator=(const TRTInfer&) = delete;
 
-    InferenceResult infer(const cv::Mat& blob);
+    // InferenceResult is only valid until the next infer() call
+    const InferenceResult& infer(const cv::Mat& blob);
     const TensorInfo& inputTensorInfo() const;
     const TensorInfo& outputTensorInfo(const std::string& name) const;
 

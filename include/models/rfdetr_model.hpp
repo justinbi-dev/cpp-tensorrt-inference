@@ -20,7 +20,7 @@ public:
 
 private:
     cv::Mat preprocess_(const cv::Mat& frame) override;
-    InferenceResult infer_(const cv::Mat& frame) override;
+    const InferenceResult& infer_(const cv::Mat& frame) override;
     std::vector<Detection> postprocess_(const InferenceResult& inference_result, int sourceWidth, int sourceHeight) override;
 
     float confThresh_;
