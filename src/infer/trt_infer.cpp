@@ -41,7 +41,7 @@ std::string nvinferTypeToString(nvinfer1::DataType dtype) {
         case DataType::kHALF:  return "kHALF (16-bit Float)";
         case DataType::kINT8:  return "kINT8 (8-bit Quantized Int)";
         case DataType::kUINT8: return "kUINT8 (8-bit Unsigned Int)";
-        case DataType::kBOOL:  return "kBOOL (1-bit Boolean)";
+        case DataType::kBOOL:  return "kBOOL (1-byte Boolean)";
         case DataType::kFP8:   return "kFP8 (8-bit Float)";
         case DataType::kINT4:  break;
     }
