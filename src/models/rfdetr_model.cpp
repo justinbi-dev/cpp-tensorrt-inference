@@ -6,13 +6,22 @@ RFDETRModel::RFDETRModel(const DetectorConfig& cfg)
         const TensorInfo& input_info = trt_infer_->inputTensorInfo();
 
         if (input_info.shape.size() != 4) throw std::runtime_error("Input tensor has: " + std::to_string(input_info.shape.size()) + " dimensions. Expected 4 dimensions.");
+        if (input_info.shape[0] != 1) throw std::runtime_error("Input tensor has a batch size of: " + std::to_string(input_info.shape[0]) + ". Only single-image batches are currently supported.");
+        if (input_info.shape[1] != 3) throw std::runtime_error("Input tensor has: " + std::to_string(input_info.shape[1]) + " input channels. Expected 3 channels.");
         modelInputHeight_ = static_cast<int>(input_info.shape[2]);
         modelInputWidth_ = static_cast<int>(input_info.shape[3]);
 
         const TensorInfo& label_info = trt_infer_->outputTensorInfo("labels");
         if (label_info.shape.size() != 3) throw std::runtime_error("Output label tensor has: " + std::to_string(label_info.shape.size()) + " dimensions. Expected 3 dimensions.");
+        if (label_info.shape[0] != 1) throw std::runtime_error("Output label tensor has a batch size of: " + std::to_string(label_info.shape[0]) + ". Only single-image batches are currently supported.");
         numClasses_ = static_cast<int>(label_info.shape[2]);
         numQueries_ = static_cast<int>(label_info.shape[1]);
+
+        const TensorInfo& det_info = trt_infer_->outputTensorInfo("dets");
+        if (det_info.shape.size() != 3) throw std::runtime_error("Output detection tensor has: " + std::to_string(det_info.shape.size()) + " dimensions. Expected 3 dimensions.");
+        if (det_info.shape[0] != 1) throw std::runtime_error("Output detection tensor has a batch size of: " + std::to_string(det_info.shape[0]) + ". Only single-image batches are currently supported.");
+        if (det_info.shape[1] != label_info.shape[1]) throw std::runtime_error("Output tensor number of queries does not match: dets = " + std::to_string(det_info.shape[1]) + ", labels = " + std::to_string(label_info.shape[1]));
+        if (det_info.shape[2] != 4) throw std::runtime_error("Output detection tensor has " + std::to_string(det_info.shape[2]) + " box coordinates. Expected 4 coordinates.");
     }
 
 cv::Mat RFDETRModel::preprocess_(const cv::Mat& frame) {
