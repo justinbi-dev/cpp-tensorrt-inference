@@ -3,11 +3,9 @@
 #include "models/performance_metrics.hpp"
 #include "models/imodel.hpp"
 #include "utils/config.hpp"
-#include "utils/timer.hpp"
 
 #include <opencv2/opencv.hpp>
 #include <vector>
-#include <algorithm>
 
 class RFDETRModel: public IDetectorModel {
 public:

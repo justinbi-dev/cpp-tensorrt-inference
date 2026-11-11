@@ -1,4 +1,9 @@
 #include "models/rfdetr_model.hpp"
+#include "utils/timer.hpp"
+#include <algorithm>
+#include <cmath>
+#include <stdexcept>
+#include <string>
 
 RFDETRModel::RFDETRModel(const DetectorConfig& cfg)
     : confThresh_(cfg.conf_threshold) {
