@@ -54,6 +54,10 @@ TRTInfer::TRTInfer(const std::string& path) {
     loadEngine(path);
     allocateBuffers();
     cudaStreamCreate(&stream_);
+    cudaEventCreate(&start_);
+    cudaEventCreate(&afterH2D_);
+    cudaEventCreate(&afterInfer_);
+    cudaEventCreate(&afterD2H_);
 }
 void TRTInfer::loadEngine(const std::string& path) {
     std::ifstream file(path, std::ios::binary);
@@ -135,38 +139,26 @@ const InferenceResult& TRTInfer::infer(const cv::Mat& blob) {
                                 std::to_string(in.info.bytes));
     }
 
-    cudaEvent_t start, afterH2D, afterInfer, afterD2H;
-    cudaEventCreate(&start);
-    cudaEventCreate(&afterH2D);
-    cudaEventCreate(&afterInfer);
-    cudaEventCreate(&afterD2H);
-
-    cudaEventRecord(start, stream_);
+    cudaEventRecord(start_, stream_);
 
     cudaMemcpyAsync(in.device_buffer, blob.ptr<float>(), in.info.bytes, cudaMemcpyHostToDevice, stream_);
-    cudaEventRecord(afterH2D, stream_);
+    cudaEventRecord(afterH2D_, stream_);
 
     context_->enqueueV3(stream_);
-    cudaEventRecord(afterInfer, stream_);
+    cudaEventRecord(afterInfer_, stream_);
 
     for (size_t idx : output_indices_) {
         const TensorBinding& out = tensors_[idx];
         cudaMemcpyAsync(output_.out_host_buffers.at(out.info.name).data(), out.device_buffer, out.info.bytes, cudaMemcpyDeviceToHost, stream_);
     }
-    cudaEventRecord(afterD2H, stream_);
+    cudaEventRecord(afterD2H_, stream_);
 
     cudaStreamSynchronize(stream_); // must sync before reading event times
 
-    float h2d_ms = 0.f, infer_ms = 0.f, d2h_ms = 0.f, total_ms = 0.f;
-    cudaEventElapsedTime(&output_.metrics.h2d_ms, start, afterH2D);
-    cudaEventElapsedTime(&output_.metrics.infer_ms, afterH2D, afterInfer);
-    cudaEventElapsedTime(&output_.metrics.d2h_ms, afterInfer, afterD2H);
-    cudaEventElapsedTime(&output_.metrics.total_ms, start, afterD2H);
-
-    cudaEventDestroy(start);
-    cudaEventDestroy(afterH2D);
-    cudaEventDestroy(afterInfer);
-    cudaEventDestroy(afterD2H);
+    cudaEventElapsedTime(&output_.metrics.h2d_ms, start_, afterH2D_);
+    cudaEventElapsedTime(&output_.metrics.infer_ms, afterH2D_, afterInfer_);
+    cudaEventElapsedTime(&output_.metrics.d2h_ms, afterInfer_, afterD2H_);
+    cudaEventElapsedTime(&output_.metrics.total_ms, start_, afterD2H_);
 
     return output_;
 }
@@ -185,6 +177,10 @@ const TensorInfo& TRTInfer::outputTensorInfo(const std::string& name) const {
 }
 
 TRTInfer::~TRTInfer() {
-    for (auto& t : tensors_) cudaFree(t.device_buffer);
+    cudaEventDestroy(start_);
+    cudaEventDestroy(afterH2D_);
+    cudaEventDestroy(afterInfer_);
+    cudaEventDestroy(afterD2H_);
     cudaStreamDestroy(stream_);
+    for (auto& t : tensors_) cudaFree(t.device_buffer);
 }

@@ -44,5 +44,6 @@ private:
 
     InferenceResult output_;
     cudaStream_t stream_;
+    cudaEvent_t start_, afterH2D_, afterInfer_, afterD2H_;
 
 };
