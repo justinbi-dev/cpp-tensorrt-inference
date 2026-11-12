@@ -1,5 +1,6 @@
 #pragma once
 #include <iostream>
+
 #include "infer/inference_result.hpp"
 
 struct PerformanceMetrics {
@@ -9,7 +10,6 @@ struct PerformanceMetrics {
     float postprocess_ms = 0.0f;
     InferenceMetrics inference_metrics;
 
-    
     void print() const;
     void print(std::ostream& os) const;
 };

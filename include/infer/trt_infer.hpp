@@ -1,7 +1,8 @@
 #pragma once
 #include <NvInfer.h>
-#include <opencv2/opencv.hpp>
+
 #include <memory>
+#include <opencv2/opencv.hpp>
 #include <vector>
 
 #include "infer/inference_result.hpp"
@@ -30,7 +31,7 @@ private:
     void loadEngine(const std::string& path);
     void allocateBuffers();
 
-    struct TensorBinding{
+    struct TensorBinding {
         TensorInfo info;
         void* device_buffer = nullptr;
     };
@@ -45,5 +46,4 @@ private:
     InferenceResult output_;
     cudaStream_t stream_;
     cudaEvent_t start_, afterH2D_, afterInfer_, afterD2H_;
-
 };

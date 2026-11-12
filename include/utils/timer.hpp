@@ -7,9 +7,10 @@ public:
 
     ScopedTimer(const ScopedTimer&) = delete;
     ScopedTimer& operator=(const ScopedTimer&) = delete;
-    
+
     ~ScopedTimer() {
-        out_ = std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - start_).count();
+        out_ = std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - start_)
+                   .count();
     }
 
 private:

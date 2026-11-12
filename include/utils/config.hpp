@@ -1,19 +1,20 @@
 #pragma once
-#include <string>
 #include <filesystem>
+#include <string>
 
 /// Configuration for a single detector run, loaded from a YAML file via
 /// loadConfig(). Relative paths in the file are resolved against the config file's directory.
 struct DetectorConfig {
-    std::string engine_path;              ///< Absolute path to TensorRT engine file. 
-    float conf_threshold = 0.25f;         ///< Detection confidence threshold, [0, 1].
-    std::string input_source;             ///< Absolute path to input source.
-    bool enable_profiling = true;         ///< If true, displays per-stage timing on the command line.
+    std::string engine_path;       ///< Absolute path to TensorRT engine file.
+    float conf_threshold = 0.25f;  ///< Detection confidence threshold, [0, 1].
+    std::string input_source;      ///< Absolute path to input source.
+    bool enable_profiling = true;  ///< If true, displays per-stage timing on the command line.
 };
 
 /// Loads and validates a detector configuration from a YAML file.
 ///
-/// @param path Path to the YAML config file. Relative paths are resolved against the current working directory.
+/// @param path Path to the YAML config file. Relative paths are resolved against the current
+/// working directory.
 /// @return Populated, validated DetectorConfig.
 /// @throws std::runtime_error if the file is missing, malformed, fails
 ///         validation, or references a path that doesn't exist on disk.
