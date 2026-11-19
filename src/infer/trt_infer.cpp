@@ -4,6 +4,8 @@
 
 #include <fstream>
 
+#include "utils/cuda_check.hpp"
+
 namespace {
 
 class Logger : public nvinfer1::ILogger {
@@ -73,11 +75,11 @@ std::string nvinferTypeToString(nvinfer1::DataType dtype) {
 TRTInfer::TRTInfer(const std::string& path) {
     loadEngine(path);
     allocateBuffers();
-    cudaStreamCreate(&stream_);
-    cudaEventCreate(&start_);
-    cudaEventCreate(&afterH2D_);
-    cudaEventCreate(&afterInfer_);
-    cudaEventCreate(&afterD2H_);
+    CUDA_CHECK(cudaStreamCreate(&stream_));
+    CUDA_CHECK(cudaEventCreate(&start_));
+    CUDA_CHECK(cudaEventCreate(&afterH2D_));
+    CUDA_CHECK(cudaEventCreate(&afterInfer_));
+    CUDA_CHECK(cudaEventCreate(&afterD2H_));
 }
 void TRTInfer::loadEngine(const std::string& path) {
     std::ifstream file(path, std::ios::binary);
@@ -131,7 +133,9 @@ void TRTInfer::allocateBuffers() {
 
         if (cudaMalloc(&tensor.device_buffer, info.bytes) != cudaSuccess)
             throw std::runtime_error("cudaMalloc failed for tensor " + info.name);
-        context_->setTensorAddress(info.name.c_str(), tensor.device_buffer);
+
+        if (!context_->setTensorAddress(info.name.c_str(), tensor.device_buffer))
+            throw std::runtime_error("setTensorAddress failed for tensor " + info.name);
 
         if (info.is_input) {
             input_indices_.push_back(tensors_.size());
@@ -164,28 +168,32 @@ const InferenceResult& TRTInfer::infer(const cv::Mat& blob) {
                                  std::to_string(in.info.bytes));
     }
 
-    cudaEventRecord(start_, stream_);
+    CUDA_CHECK(cudaEventRecord(start_, stream_));
 
-    cudaMemcpyAsync(in.device_buffer, blob.ptr<float>(), in.info.bytes, cudaMemcpyHostToDevice,
-                    stream_);
-    cudaEventRecord(afterH2D_, stream_);
+    CUDA_CHECK(cudaMemcpyAsync(in.device_buffer, blob.ptr<float>(), in.info.bytes,
+                               cudaMemcpyHostToDevice, stream_));
+    CUDA_CHECK(cudaEventRecord(afterH2D_, stream_));
 
-    context_->enqueueV3(stream_);
-    cudaEventRecord(afterInfer_, stream_);
+    if (!context_->enqueueV3(stream_)) {
+        throw std::runtime_error("enqueueV3 failed.");
+    }
+
+    CUDA_CHECK(cudaEventRecord(afterInfer_, stream_));
 
     for (size_t idx : output_indices_) {
         const TensorBinding& out = tensors_[idx];
-        cudaMemcpyAsync(output_.out_host_buffers.at(out.info.name).data(), out.device_buffer,
-                        out.info.bytes, cudaMemcpyDeviceToHost, stream_);
+        CUDA_CHECK(cudaMemcpyAsync(output_.out_host_buffers.at(out.info.name).data(),
+                                   out.device_buffer, out.info.bytes, cudaMemcpyDeviceToHost,
+                                   stream_));
     }
-    cudaEventRecord(afterD2H_, stream_);
+    CUDA_CHECK(cudaEventRecord(afterD2H_, stream_));
 
-    cudaStreamSynchronize(stream_);  // must sync before reading event times
+    CUDA_CHECK(cudaStreamSynchronize(stream_));  // must sync before reading event times
 
-    cudaEventElapsedTime(&output_.metrics.h2d_ms, start_, afterH2D_);
-    cudaEventElapsedTime(&output_.metrics.infer_ms, afterH2D_, afterInfer_);
-    cudaEventElapsedTime(&output_.metrics.d2h_ms, afterInfer_, afterD2H_);
-    cudaEventElapsedTime(&output_.metrics.total_ms, start_, afterD2H_);
+    CUDA_CHECK(cudaEventElapsedTime(&output_.metrics.h2d_ms, start_, afterH2D_));
+    CUDA_CHECK(cudaEventElapsedTime(&output_.metrics.infer_ms, afterH2D_, afterInfer_));
+    CUDA_CHECK(cudaEventElapsedTime(&output_.metrics.d2h_ms, afterInfer_, afterD2H_));
+    CUDA_CHECK(cudaEventElapsedTime(&output_.metrics.total_ms, start_, afterD2H_));
 
     return output_;
 }
