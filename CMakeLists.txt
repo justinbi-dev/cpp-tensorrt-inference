@@ -21,8 +21,7 @@ include_directories(
 )
 link_directories(${TENSORRT_LIB_DIR})
 
-add_executable(orin_detector
-    src/main.cpp
+add_library(detector_core
     src/infer/trt_infer.cpp
     src/utils/config.cpp
     src/utils/class_names.cpp
@@ -30,11 +29,13 @@ add_executable(orin_detector
     src/models/rfdetr_model.cpp
 )
 
-target_link_libraries(orin_detector
+target_link_libraries(detector_core PUBLIC
     ${OpenCV_LIBS}
     ${CUDA_LIBRARIES}
     nvinfer
-    nvonnxparser
     yaml-cpp
-    CUDA::cudart
 )
+
+add_executable(orin_detector src/main.cpp)
+target_link_libraries(orin_detector PRIVATE detector_core)
+
