@@ -1,5 +1,4 @@
 #pragma once
-#include <string>
 
 struct BoundingBox {
     float x1;
@@ -12,5 +11,4 @@ struct Detection {
     BoundingBox box;
     float confidence;
     int class_id;
-    std::string class_name;
 };

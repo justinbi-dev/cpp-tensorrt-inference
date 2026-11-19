@@ -14,6 +14,7 @@ public:
     ~RFDETRModel() = default;
 
     const PerformanceMetrics& metrics() const { return metrics_; }
+    const std::vector<std::string>& classNames() const { return classNames_; }
 
 private:
     cv::Mat preprocess_(const cv::Mat& frame) override;
@@ -23,5 +24,6 @@ private:
 
     float confThresh_;
     int modelInputWidth_, modelInputHeight_, numClasses_, numQueries_;
+    std::vector<std::string> classNames_;
     PerformanceMetrics metrics_;
 };

@@ -6,6 +6,7 @@
 /// loadConfig(). Relative paths in the file are resolved against the config file's directory.
 struct DetectorConfig {
     std::string engine_path;       ///< Absolute path to TensorRT engine file.
+    std::string class_map_path;    ///< Absolute path to class map YAML file.
     float conf_threshold = 0.25f;  ///< Detection confidence threshold, [0, 1].
     std::string input_source;      ///< Absolute path to input source.
     bool enable_profiling = true;  ///< If true, displays per-stage timing on the command line.

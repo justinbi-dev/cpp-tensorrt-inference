@@ -32,6 +32,7 @@ int main(int argc, char** argv) {
 
     cv::VideoCapture source(config.input_source);
     cv::Mat frame;
+    const std::vector<std::string>& classNames = detector->classNames();
 
     while (source.isOpened()) {
         bool ret = source.read(frame);
@@ -45,8 +46,8 @@ int main(int argc, char** argv) {
         for (const auto& d : detections) {
             cv::Rect2f box(cv::Point2f(d.box.x1, d.box.y1), cv::Point2f(d.box.x2, d.box.y2));
             cv::rectangle(frame, box, {0, 255, 0}, 2);
-            cv::putText(frame, d.class_name + " " + std::to_string(d.confidence), box.tl(),
-                        cv::FONT_HERSHEY_SIMPLEX, 0.5, {0, 255, 0}, 1);
+            cv::putText(frame, classNames[d.class_id] + " " + std::to_string(d.confidence),
+                        box.tl(), cv::FONT_HERSHEY_SIMPLEX, 0.5, {0, 255, 0}, 1);
         }
         cv::imshow("detections", frame);
         if (cv::waitKey(1) == 'q') break;

@@ -25,6 +25,7 @@ add_executable(orin_detector
     src/main.cpp
     src/infer/trt_infer.cpp
     src/utils/config.cpp
+    src/utils/class_names.cpp
     src/models/performance_metrics.cpp
     src/models/rfdetr_model.cpp
 )

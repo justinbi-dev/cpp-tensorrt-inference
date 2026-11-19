@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <string>
 
+#include "utils/class_names.hpp"
 #include "utils/timer.hpp"
 
 RFDETRModel::RFDETRModel(const DetectorConfig& cfg) : confThresh_(cfg.conf_threshold) {
@@ -53,6 +54,8 @@ RFDETRModel::RFDETRModel(const DetectorConfig& cfg) : confThresh_(cfg.conf_thres
         throw std::runtime_error("Output detection tensor has " +
                                  std::to_string(det_info.shape[2]) +
                                  " box coordinates. Expected 4 coordinates.");
+
+    classNames_ = loadClassNames(cfg.class_map_path, numClasses_);
 }
 
 cv::Mat RFDETRModel::preprocess_(const cv::Mat& frame) {
@@ -110,8 +113,6 @@ std::vector<Detection> RFDETRModel::postprocess_(const InferenceResult& inferenc
         d.box = {x1, y1, x2, y2};
         d.confidence = bestScore;
         d.class_id = bestClass;
-        // d.class_name = classNames[classIds[idx]];
-        d.class_name = "";
         detections.push_back(d);
     }
 

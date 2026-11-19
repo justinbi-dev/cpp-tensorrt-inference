@@ -31,11 +31,14 @@ DetectorConfig loadConfig(const std::string& path) {
 
     if (!node["engine_path"])
         throw std::runtime_error("Missing required key 'engine_path' in " + path);
+    if (!node["class_map_path"])
+        throw std::runtime_error("Missing required key 'class_map_path' in " + path);
     if (!node["input_source"])
         throw std::runtime_error("Missing required key 'input_source' in " + path);
 
     DetectorConfig cfg;
     cfg.engine_path = resolvePath(configDir, node["engine_path"].as<std::string>());
+    cfg.class_map_path = resolvePath(configDir, node["class_map_path"].as<std::string>());
     cfg.conf_threshold = node["conf_threshold"].as<float>(cfg.conf_threshold);
     cfg.input_source = resolvePath(configDir, node["input_source"].as<std::string>());
     cfg.enable_profiling = node["enable_profiling"].as<bool>(cfg.enable_profiling);
