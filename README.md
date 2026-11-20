@@ -4,7 +4,7 @@ Real-time [RF-DETR](https://github.com/roboflow/rf-detr) object detection in C++
 
 https://github.com/user-attachments/assets/d056b45c-a0d9-421f-a8cf-4a33ce3d7887
 
-Footage: [Dubang Chang on Pexels](https://www.pexels.com/video/busy-urban-street-scene-in-oakland-california-28775145/) (Pexels License)
+Footage: [Dubang Chang on Pexels](https://www.pexels.com/video/busy-urban-street-scene-in-oakland-california-28775145/) (Pexels License), 1920x1080 version
 
 ## Overview
 
@@ -32,7 +32,7 @@ Implementation details:
 
 A benchmark executable and sweep script are provided in `benchmark/`. 
 
-Full results, including per-stage p95/p99 and the raw per-frame timings can be found here: [`benchmark/results/2026-11-19_2206/`](benchmark/results/2026-11-19_2206/)
+Full results, including per-stage p95/p99, can be found here: [`benchmark/results/2026-11-20_1521/`](benchmark/results/2026-11-20_1521/)
 
 ### Benchmark Environment
 - Jetson AGX Orin Developer Kit
@@ -41,31 +41,34 @@ Full results, including per-stage p95/p99 and the raw per-frame timings can be f
 - JetPack 6.2 (L4T R36.5)
 - TensorRT 10.3
 - Batch size 1
-- 1920×1080 input video
-- 500 measured frames after 50 warm-up frames per engine
+- 1920x1080 input video
+- 5000 measured frames after 100 warm-up frames per engine
+- 60 seconds of cooldown time between runs
+
+No thermal throttling was observed, with a max GPU temperature of 65 °C during runs
 
 FPS is detector throughput (`1000 / mean latency`). This includes preprocessing, inference and
 postprocessing, but not video decoding and display.
 
-| Model | Input | Precision | FPS | Mean (ms) | Median (ms) | p95 (ms) | p99 (ms) |
-|---|---|---|---|---|---|---|---|
-| nano | 384 | FP16 | 149.6 | 6.68 | 6.51 | 7.82 | 10.04 |
-| nano | 384 | FP32 | 88.2 | 11.34 | 11.25 | 12.09 | 15.44 |
-| small | 512 | FP16 | 94.0 | 10.64 | 11.05 | 12.65 | 14.72 |
-| small | 512 | FP32 | 49.8 | 20.09 | 19.89 | 25.64 | 27.84 |
-| medium | 576 | FP16 | 80.4 | 12.44 | 13.38 | 14.53 | 17.95 |
-| medium | 576 | FP32 | 38.5 | 26.00 | 25.59 | 34.69 | 36.31 |
-| large | 704 | FP16 | 49.2 | 20.34 | 18.95 | 23.85 | 24.58 |
-| large | 704 | FP32 | 24.9 | 40.20 | 38.47 | 44.36 | 48.46 |
+| Model | Input | Precision | FPS | Mean (ms) | Median (ms) | p95 (ms) | p99 (ms) | Detections/frame |
+|---|---|---|---|---|---|---|---|---|
+| nano | 384 | FP16 | 153.0 | 6.54 | 6.52 | 6.61 | 6.78 | 22.4 |
+| nano | 384 | FP32 | 87.8 | 11.38 | 11.34 | 11.45 | 12.26 | 22.4 |
+| small | 512 | FP16 | 102.3 | 9.78 | 9.44 | 11.95 | 13.19 | 23.7 |
+| small | 512 | FP32 | 56.9 | 17.58 | 17.40 | 19.73 | 20.21 | 23.7 |
+| medium | 576 | FP16 | 90.2 | 11.09 | 10.92 | 13.45 | 13.70 | 25.6 |
+| medium | 576 | FP32 | 43.2 | 23.17 | 23.02 | 25.44 | 25.85 | 25.6 |
+| large | 704 | FP16 | 54.4 | 18.40 | 18.34 | 18.72 | 19.12 | 27.8 |
+| large | 704 | FP32 | 26.3 | 38.03 | 37.96 | 38.34 | 38.73 | 27.9 |
 
-Median time per stage (ms):
+Median per-stage time (ms):
 
 | Model | Precision | Preprocess | H2D | TensorRT | D2H | Postprocess |
 |---|---|---|---|---|---|---|
-| nano | FP16 | 1.95 | 0.22 | 4.03 | 0.07 | 0.20 |
-| large | FP16 | 6.48 | 0.60 | 10.38 | 0.09 | 0.20 |
+| nano | FP16 | 1.93 | 0.22 | 4.03 | 0.08 | 0.20 |
+| large | FP16 | 6.37 | 0.60 | 10.34 | 0.09 | 0.20 |
 
-CPU preprocessing accounts for ~30% of frame time, which makes GPU preprocessing the biggest optimization on the roadmap. 
+CPU preprocessing accounts for ~30-35% of frame time, which makes GPU preprocessing the biggest optimization on the roadmap. 
 
 FP16 and FP32 engines produce the same number of detections
 per frame on this video, but accuracy (mAP) has not been validated yet.
@@ -108,6 +111,10 @@ cmake --build build -j
 ```
 
 ### 3. Run
+
+Download the [clip](https://www.pexels.com/video/busy-urban-street-scene-in-oakland-california-28775145/) at 1920x1080 resolution into `data/pexels-oakland-street.mp4`.
+
+Verify the checksum is `7d48d07b436a7d05808db98b24bdc7f2d388359ec7b8d255dbcb64370beaac53` with `sha256sum data/pexels-oakland-street.mp4`.
 
 Set `engine_path` and `input_source` in [`config/default.yaml`](config/default.yaml), then:
 
