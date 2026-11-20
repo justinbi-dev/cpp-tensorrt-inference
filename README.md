@@ -13,19 +13,35 @@ engines from C++. At runtime the only dependencies are TensorRT, the CUDA runtim
 
 Python is only used offline, to export the model to ONNX and analyze benchmark data. 
 
-Each image frame goes through:
+Architecture:
 
+```mermaid
+flowchart TB
+    video["Video file"] -->|cv::VideoCapture| app["main.cpp / orin_benchmark"]
+    config["config/default.yaml"] -->|loadConfig| app
+    app -->|frame| pre
+
+    subgraph model ["RFDETRModel"]
+        pre["preprocess_ (CPU)<br/>resize, normalize, BGR→RGB, NCHW"]
+        post["postprocess_ (CPU)<br/>best class, threshold, cxcywh → xyxy"]
+    end
+
+    subgraph trt ["TRTInfer"]
+        h2d["H2D copy"] --> enqueue["enqueueV3<br/>TensorRT engine"] --> d2h["D2H copy"]
+    end
+
+    engine[".engine file"] -.->|loaded at startup| enqueue
+    pre --> h2d
+    d2h --> post
+    post -->|detections| app
 ```
-frame → preprocess (CPU) → H2D copy → TensorRT inference → D2H copy → postprocess (CPU) → detections
-```
 
-- **Preprocess:** resize to the engine's input size, ImageNet normalization, BGR-RGB, HWC-NCHW.
-- **Postprocess:** per-query best class, confidence threshold, normalized cxcywh boxes scaled
-  to the source frame as xyxy.
+## Design Decisions
 
-Implementation details:
-
-- Input size, query count and class count are read from the engine.
+- TRTInfer is owned by RFDETRModel, so TRTInfer is independent of the model family, while the model owns its inference backend.
+- Input size, query count and class count are read from the engine. The engine acts as a source of truth, and enables validation at load-time.
+- The engine is built with `trtexec` instead of the Python `rfdetr` package TensorRT export. TensorRT engines must match the TensorRT the C++ binary links against. The TensorRT and CUDA wheels that 
+`pip` installs alongside `rfdetr` are newer and aren't compatible with TensorRT 10.3 on JetPack 6.2.
 - Per-stage timing: CPU wall-clock for each stage, with CUDA events for the copies and inference.
 
 ## Benchmarks
@@ -97,10 +113,6 @@ This downloads the pretrained weights, exports `models/output/rfdetr-nano.onnx`,
 
 Model sizes are `nano`, `small`, `medium` and `large`. Precisions are `fp16` and `fp32`.
 
-The engine is built with `trtexec` instead of the Python `rfdetr` package TensorRT export, as a
-TensorRT engine has to match the TensorRT the C++ binary links against. The TensorRT and CUDA wheels that 
-`pip` installs alongside `rfdetr` are newer and aren't compatible with TensorRT 10.3 on JetPack 6.2.
-
 Existing exported ONNX files are reused. Delete them to re-export, for example after upgrading `rfdetr`.
 
 ### 2. Build
@@ -157,13 +169,18 @@ config/         default config and COCO class names
 
 ## Roadmap
 
+Next:
+- Unit tests for postprocessing (GoogleTest) and CI
 - Top-K postprocessing over (query, class) pairs, matching the reference implementation
+- Output validation against the Python `rfdetr` reference (FP32 and FP16)
+
+Later:
+- Pinned and zero-copy host memory
+- CUDA preprocessing kernel (~30–35% of frame time today)
 - RAII wrappers for CUDA resources
-- Unit tests and CI
-- CUDA preprocessing kernel
-- Pinned and zero-copy memory 
+- SORT-style multi-object tracker
 - ROS 2 node and end-to-end camera-to-detection latency
-- mAP validation against the Python reference
+- mAP evaluation
 
 ## Related work
 
