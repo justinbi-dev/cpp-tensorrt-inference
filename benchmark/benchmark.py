@@ -137,9 +137,9 @@ def markdown_tables(results: list[tuple[str, str, dict]]) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--frames", type=int, default=500, help="Measured frames per engine")
-    parser.add_argument("--warmup", type=int, default=50, help="Warm-up frames per engine")
-    parser.add_argument("--cooldown", type=float, default=15.0, help="Seconds between runs")
+    parser.add_argument("--frames", type=int, default=5000, help="Measured frames per engine")
+    parser.add_argument("--warmup", type=int, default=100, help="Warm-up frames per engine")
+    parser.add_argument("--cooldown", type=float, default=60.0, help="Seconds between runs")
     parser.add_argument("--binary", type=Path, default=REPO_ROOT / "build" / "orin_benchmark")
     parser.add_argument("--config", type=Path, default=REPO_ROOT / "config" / "default.yaml")
     parser.add_argument("--engine-dir", type=Path, default=REPO_ROOT / "models" / "output")

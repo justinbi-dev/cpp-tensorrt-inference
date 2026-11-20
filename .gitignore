@@ -2,6 +2,7 @@ build/
 .vscode/
 data/
 models/.venv/
+benchmark/results/*/raw/
 __pycache__/
 *.engine
 *.onnx
