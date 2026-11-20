@@ -147,7 +147,7 @@ To benchmark a single engine directly, modify `config/default.yaml` with the des
 ```
 include/, src/
   infer/        TRTInfer: engine loading, GPU buffers, CUDA stream, inference
-  models/       IDetectorModel interface, RFDETRModel pre/postprocessing
+  models/       RFDETRModel pre/postprocessing
   utils/        config and class-name loading, CUDA_CHECK, ScopedTimer
   main.cpp      demo: runs the detector on a video and draws the detections
 benchmark/      headless benchmark executable, benchmark sweep script, results
