@@ -1,9 +1,9 @@
 #include <iostream>
 #include <memory>
 #include <opencv2/opencv.hpp>
-#include <utils/config.hpp>
 
 #include "models/rfdetr_model.hpp"
+#include "utils/config.hpp"
 
 int main(int argc, char** argv) {
     std::string configPath = "config/default.yaml";
