@@ -2,9 +2,9 @@
 
 Real-time [RF-DETR](https://github.com/roboflow/rf-detr) object detection in C++ with TensorRT on NVIDIA Jetson Orin.
 
-https://github.com/user-attachments/assets/8c5f157a-dea4-4bd8-83ac-407f1cf13e30
+https://github.com/user-attachments/assets/d056b45c-a0d9-421f-a8cf-4a33ce3d7887
 
-Credit: https://www.youtube.com/watch?v=JqhdBCCUVyQ
+Footage: [Dubang Chang on Pexels](https://www.pexels.com/video/busy-urban-street-scene-in-oakland-california-28775145/) (Pexels License)
 
 ## Overview
 
