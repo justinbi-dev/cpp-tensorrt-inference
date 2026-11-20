@@ -1,5 +1,9 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.17)
 project(orin_detector LANGUAGES CXX CUDA)
+
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -41,3 +45,4 @@ target_link_libraries(orin_detector PRIVATE detector_core)
 
 add_executable(orin_benchmark benchmark/benchmark.cpp)
 target_link_libraries(orin_benchmark PRIVATE detector_core)
+
