@@ -1,5 +1,5 @@
 engine_path: "../models/output/rfdetr-large-fp16.engine"
 class_map_path: "coco_classes.yaml"
 conf_threshold: 0.25
-input_source: "../data/sample.mp4"
+input_source: "../data/pexels-oakland-street.mp4"
 enable_profiling: true
