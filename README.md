@@ -38,11 +38,12 @@ flowchart TB
 
 ## Design Decisions
 
-- TRTInfer is owned by RFDETRModel, so TRTInfer is independent of the model family, while the model owns its inference backend.
+- TRTInfer loads any single-input engine. Each model owns a TRTInfer and adds its own pre/postprocessing on top.
 - Input size, query count and class count are read from the engine. The engine acts as a source of truth, and enables validation at load-time.
 - The engine is built with `trtexec` instead of the Python `rfdetr` package TensorRT export. TensorRT engines must match the TensorRT the C++ binary links against. The TensorRT and CUDA wheels that 
 `pip` installs alongside `rfdetr` are newer and aren't compatible with TensorRT 10.3 on JetPack 6.2.
 - Per-stage timing: CPU wall-clock for each stage, with CUDA events for the copies and inference.
+- No detector interface for now, as it added complexity without a second implementation to justify it.
 
 ## Benchmarks
 
@@ -61,7 +62,7 @@ Full results, including per-stage p95/p99, can be found here: [`benchmark/result
 - 5000 measured frames after 100 warm-up frames per engine
 - 60 seconds of cooldown time between runs
 
-No thermal throttling was observed, with a max GPU temperature of 65 °C during runs
+No thermal throttling was observedwith a max GPU temperature of 65 °C during runs, measured with `tegrastats`.
 
 FPS is detector throughput (`1000 / mean latency`). This includes preprocessing, inference and
 postprocessing, but not video decoding and display.
@@ -86,7 +87,7 @@ Median per-stage time (ms):
 
 CPU preprocessing accounts for ~30-35% of frame time, which makes GPU preprocessing the biggest optimization on the roadmap. 
 
-FP16 and FP32 engines produce the same number of detections
+FP16 and FP32 engines produce within 0.1 detections
 per frame on this video, but accuracy (mAP) has not been validated yet.
 
 
