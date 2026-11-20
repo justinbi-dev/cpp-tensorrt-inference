@@ -39,3 +39,5 @@ target_link_libraries(detector_core PUBLIC
 add_executable(orin_detector src/main.cpp)
 target_link_libraries(orin_detector PRIVATE detector_core)
 
+add_executable(orin_benchmark benchmark/benchmark.cpp)
+target_link_libraries(orin_benchmark PRIVATE detector_core)
